@@ -1,3 +1,4 @@
+MINING_REWARD = 10
 genesis_block = {'previous_hash': ''
     , 'index': 0
     , 'transactions': []
@@ -20,6 +21,13 @@ def get_last_blockchain_value():
     return blockchain[-1]
 
 
+def verify_transaction(transaction):
+    # sender_balance = get_balances(transaction['sender'])
+    # return sender_balance >= transaction['amount']
+
+    return get_balances(transaction['sender']) >= transaction['amount']
+
+
 # def add_value(transaction_amount, last_transaction=[1]):
 def add_transaction(recipient, sender=owner, amount=1.0):
     # This method appends a new element to the list.
@@ -28,17 +36,30 @@ def add_transaction(recipient, sender=owner, amount=1.0):
     #     last_transaction = [1]
     # blockchain.append([last_transaction, transaction_amount])
 
-    transaction = {'sender': sender, 'recipient': recipient, 'amount': amount}
-    open_transactions.append(transaction)
+    transaction = {
+        'sender': sender,
+        'recipient': recipient,
+        'amount': amount
+    }
 
-    participants.add(sender)
-    participants.add(recipient)
+    if verify_transaction(transaction):
+        open_transactions.append(transaction)
+        participants.add(sender)
+        participants.add(recipient)
+        return True
+    return False
 
 
 def mine_block():
     last_block = blockchain[-1]
     # This is list comprehension
     hashed_block = hash_block(last_block)
+    reward_transaction = {
+        'sender': 'MINING',
+        'recipient': owner,
+        'amount': MINING_REWARD
+    }
+    open_transactions.append(reward_transaction)
     block = {'previous_hash': hashed_block
         , 'index': len(blockchain)
         , 'transactions': open_transactions
@@ -56,17 +77,24 @@ def display_values():
 
 
 def get_balances(participant):
+    # Get the amounts of all the transactions sent by a given participant in the blockchain transaction
     tx_sender = [[tx['amount'] for tx in block['transactions'] if tx['sender'] == participant] for block in blockchain]
-    amount_sent = 0
-    for tx in tx_sender:
+
+    open_tx_sender = [tx['amount'] for tx in open_transactions if tx['sender'] == participant]
+    tx_sender.append(open_tx_sender)
+
+    # Get the amounts of all the transactions received by a given participant in the blockchain transaction
+    tx_recipient = [[tx['amount'] for tx in block['transactions'] if tx['recipient'] == participant] for block in
+                    blockchain]
+    return sum_amounts(tx_recipient) - sum_amounts(tx_sender)
+
+
+def sum_amounts(transaction):
+    sum_amount = 0
+    for tx in transaction:
         if len(tx) > 0:
-            amount_sent += tx[0]
-    tx_recipient = [[tx['amount'] for tx in block['transactions'] if tx['recipient'] == participant] for block in blockchain]
-    amount_received = 0
-    for tx in tx_recipient:
-        if len(tx) > 0:
-            amount_received += tx[0]
-    return amount_received - amount_sent
+            sum_amount += tx[0]
+    return sum_amount
 
 
 def get_transaction_data():
@@ -106,8 +134,6 @@ def print_invalid_message():
 
 
 def hash_block(block):
-    print("Inside hAsh block", block)
-    print("Inside Hash block", '-'.join([str(block[key]) for key in block]))
     return '-'.join([str(block[key]) for key in block])
 
 
@@ -128,7 +154,10 @@ while waiting_for_input:
     if user_choice == '1':
         txn_data = get_transaction_data()
         recipient, amount = txn_data
-        add_transaction(recipient, amount=amount)
+        if add_transaction(recipient, amount=amount):
+            print("Transaction Added")
+        else:
+            print("Transaction Failed")
     elif user_choice == '2':
         if mine_block():
             open_transactions = []
@@ -138,8 +167,6 @@ while waiting_for_input:
         print("Participants:", participants)
     elif user_choice == 'h':
         if len(blockchain) >= 1:
-            print("Length of blockchain", len(blockchain))
-            # blockchain[0] = [hacker_block]
             blockchain[0] = {'previous_hash': ''
                 , 'index': 0
                 , 'transactions': [{'sender': 'Sasi', 'recipient': "Sasi", 'amount': 30.0}]

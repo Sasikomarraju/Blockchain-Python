@@ -1,3 +1,5 @@
+import functools
+
 MINING_REWARD = 10
 genesis_block = {'previous_hash': ''
     , 'index': 0
@@ -26,6 +28,19 @@ def verify_transaction(transaction):
     # return sender_balance >= transaction['amount']
 
     return get_balances(transaction['sender']) >= transaction['amount']
+
+
+def verify_transactions():
+    # is_valid = False
+    # for tx in open_transactions:
+    #     if verify_transaction(tx):
+    #         is_valid = True
+    #     else
+    #         is_valid = False
+    # return is_valid
+
+    # The above code can be achieve using one liner - list comprehension
+    return all([verify_transaction(tx) for tx in open_transactions])
 
 
 # def add_value(transaction_amount, last_transaction=[1]):
@@ -59,10 +74,13 @@ def mine_block():
         'recipient': owner,
         'amount': MINING_REWARD
     }
-    open_transactions.append(reward_transaction)
+
+    copied_transactions = open_transactions[:]
+    copied_transactions.append(reward_transaction)
+    # open_transactions.append(reward_transaction)
     block = {'previous_hash': hashed_block
         , 'index': len(blockchain)
-        , 'transactions': open_transactions
+        , 'transactions': copied_transactions
              }
 
     blockchain.append(block)
@@ -83,10 +101,17 @@ def get_balances(participant):
     open_tx_sender = [tx['amount'] for tx in open_transactions if tx['sender'] == participant]
     tx_sender.append(open_tx_sender)
 
+    amount_sent = functools.reduce(lambda tx_sum, tx_amt: tx_sum + sum(tx_amt) if len(tx_amt) > 0 else tx_sum + 0,
+                                   tx_sender, 0)
+
     # Get the amounts of all the transactions received by a given participant in the blockchain transaction
     tx_recipient = [[tx['amount'] for tx in block['transactions'] if tx['recipient'] == participant] for block in
                     blockchain]
-    return sum_amounts(tx_recipient) - sum_amounts(tx_sender)
+    amount_received = functools.reduce(lambda tx_sum, tx_amt: tx_sum + sum(tx_amt) if len(tx_amt) > 0 else tx_sum + 0,
+                                       tx_recipient, 0)
+
+    # return sum_amounts(tx_recipient) - sum_amounts(tx_sender)
+    return amount_received - amount_sent
 
 
 def sum_amounts(transaction):
@@ -114,6 +139,7 @@ def print_static_ui_elements():
     print("2: Mine a new block")
     print("3: Print the blocks in the blockchain")
     print("4: Output participants")
+    print("5: Check transaction validity")
     print("h: Manipulate")
     print("q: Quit the program")
 
@@ -165,6 +191,11 @@ while waiting_for_input:
         display_values()
     elif user_choice == '4':
         print("Participants:", participants)
+    elif user_choice == '5':
+        if verify_transactions():
+            print("All transactions are valid")
+        else:
+            print("There are invalid transactions")
     elif user_choice == 'h':
         if len(blockchain) >= 1:
             blockchain[0] = {'previous_hash': ''
@@ -177,9 +208,9 @@ while waiting_for_input:
         print_invalid_message()
 
     if not verify_chain():
-        print("!!!!!!!!!!!!!!!!!!!!!!!!!Blockchain Compromised!!!!!!!!!!!!!!!!!!! Exiting now!")
+        print("!!!Blockchain Compromised!!! Exiting now!")
         break
 
-    print("Balance for Sasi", get_balances('Sasi'))
+    print("Balance for {} is  {:6.2f}".format('Sasi', get_balances('Sasi')))
 else:
     print("User Left")
